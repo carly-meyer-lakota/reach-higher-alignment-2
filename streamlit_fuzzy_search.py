@@ -1,66 +1,75 @@
 import streamlit as st
 import pandas as pd
-import difflib
+import requests
+from thefuzz import process
 
-# Load CSV files from GitHub repository
-def load_csv_from_github(file_name):
-    url = f"https://raw.githubusercontent.com/carly-meyer-lakota/Reach-Higher-Alignment-2/main/{file_name}"
-    df = pd.read_csv(url)
-    st.write(df.head())  # Display first few rows for debugging
-    return df
+# GitHub raw file URLs
+GITHUB_USER = "carly-meyer-lakota"
+REPO_NAME = "Reach-Higher-Alignment-2"
+VOCAB_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/{REPO_NAME}/main/vocabulary.csv"
+CURRICULUM_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/{REPO_NAME}/main/reach_higher_curriculum.csv"
 
-# Load datasets
-@st.cache_data
-def load_data():
-    vocabulary_df = load_csv_from_github("vocabulary.csv")
-    skills_df = load_csv_from_github("reach_higher_curriculum.csv")
-    
-    # Ensure column names are stripped of whitespace
-    vocabulary_df.columns = vocabulary_df.columns.str.strip()
-    skills_df.columns = skills_df.columns.str.strip()
-    
-    return vocabulary_df, skills_df
+def load_data(url):
+    try:
+        return pd.read_csv(url)
+    except Exception as e:
+        st.error(f"Error loading data: {e}")
+        return None
 
-vocabulary_df, skills_df = load_data()
+def fuzzy_match(query, choices, threshold=60):
+    match, score = process.extractOne(query, choices)
+    return match if score >= threshold else None
 
-# Fuzzy matching function
-def fuzzy_match(query, choices, cutoff=0.6):
-    matches = difflib.get_close_matches(query, choices, n=5, cutoff=cutoff)
-    return matches if matches else None
-
-# Search for a matching unit based on Vocabulary Words
-def search_unit(query):
-    matched_vocab = fuzzy_match(query, vocabulary_df['Vocabulary Words'].astype(str).tolist())
-    if matched_vocab:
-        results = vocabulary_df[vocabulary_df['Vocabulary Words'].isin(matched_vocab)]
-        return results[['Unit Name', 'Reach Higher Level', 'Unit Number', 'Part of Unit', 'Key Vocabulary']]
+def search_topic(topic, vocab_df):
+    matched_unit = fuzzy_match(topic, vocab_df['Vocabulary Words'].astype(str))
+    if matched_unit:
+        unit_info = vocab_df[vocab_df['Vocabulary Words'] == matched_unit].iloc[0]
+        return {
+            "Unit Name": unit_info["Unit Name"],
+            "Reach Higher Level": unit_info["Reach Higher Level"],
+            "Unit Number": unit_info["Unit Number"],
+            "Part of Unit": unit_info["Part of Unit"],
+            "Key Vocabulary": vocab_df[vocab_df['Unit Number'] == unit_info['Unit Number']]['Vocabulary Words'].tolist()
+        }
     return None
 
-# Search for a learning skill in reach_higher_curriculum.csv
-def search_skill(query):
-    matched_skills = fuzzy_match(query, skills_df['Skill'].astype(str).tolist())
-    if matched_skills:
-        results = skills_df[skills_df['Skill'].isin(matched_skills)]
-        return results[['Skill']]
+def search_skill(skill, curriculum_df):
+    matched_skill = fuzzy_match(skill, curriculum_df['Skill'].astype(str))
+    if matched_skill:
+        skill_info = curriculum_df[curriculum_df['Skill'] == matched_skill].iloc[0]
+        return {
+            "Skill Name": skill_info["Skill"],
+            "Unit Name": skill_info["Unit Name"],
+            "Reach Higher Level": skill_info["Reach Higher Level"],
+            "Unit Number": skill_info["Unit Number"],
+            "Part of Unit": skill_info["Part of Unit"]
+        }
     return None
+
+# Load Data
+vocab_df = load_data(VOCAB_URL)
+curriculum_df = load_data(CURRICULUM_URL)
 
 # Streamlit UI
-st.title("Reach Higher Alignment Search Tool")
-search_type = st.radio("Select search type:", ("Unit", "Learning Skill"))
-query = st.text_input("Enter your search term:")
+st.title("Reach Higher Alignment Search")
+search_type = st.radio("Select Search Type", ["Topic", "Learning Skill"])
+search_input = st.text_input("Enter your search term")
 
-if query:
-    if search_type == "Unit":
-        result = search_unit(query)
-        if result is not None:
-            st.write("### Matching Unit:")
-            st.dataframe(result)
-        else:
-            st.write("No matching unit found.")
+if st.button("Search") and search_input:
+    if search_type == "Topic" and vocab_df is not None:
+        result = search_topic(search_input, vocab_df)
+    elif search_type == "Learning Skill" and curriculum_df is not None:
+        result = search_skill(search_input, curriculum_df)
     else:
-        result = search_skill(query)
-        if result is not None:
-            st.write("### Matching Skill:")
-            st.dataframe(result)
-        else:
-            st.write("No matching skill found.")
+        result = None
+    
+    if result:
+        st.write("### Match Found:")
+        for key, value in result.items():
+            if isinstance(value, list):
+                st.write(f"**{key}:**")
+                st.write("- " + "\n- ".join(value))
+            else:
+                st.write(f"**{key}:** {value}")
+    else:
+        st.write("No close match found.")
