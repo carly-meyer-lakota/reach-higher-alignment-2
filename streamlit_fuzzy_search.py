@@ -13,6 +13,7 @@ def load_data(url):
     try:
         df = pd.read_csv(url)
         st.write(f"Loaded {url} with columns: {df.columns.tolist()}")  # Debugging: Print column names
+        st.write(df.head())  # Debugging: Print first few rows of the dataset
         return df
     except Exception as e:
         st.error(f"Error loading data: {e}")
