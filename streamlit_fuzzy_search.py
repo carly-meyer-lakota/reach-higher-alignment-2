@@ -28,11 +28,11 @@ def fuzzy_match(query, choices, cutoff=0.6):
     matches = difflib.get_close_matches(query, choices, n=5, cutoff=cutoff)
     return matches if matches else None
 
-# Search for a topic in vocabulary.csv
-def search_topic(query):
-    matched_units = fuzzy_match(query, vocabulary_df['Vocabulary Words'].astype(str).tolist())
-    if matched_units:
-        results = vocabulary_df[vocabulary_df['Vocabulary Words'].isin(matched_units)]
+# Search for a matching unit based on Vocabulary Words
+def search_unit(query):
+    matched_vocab = fuzzy_match(query, vocabulary_df['Vocabulary Words'].astype(str).tolist())
+    if matched_vocab:
+        results = vocabulary_df[vocabulary_df['Vocabulary Words'].isin(matched_vocab)]
         return results[['Unit Name', 'Reach Higher Level', 'Unit Number', 'Part of Unit', 'Key Vocabulary']]
     return None
 
@@ -46,12 +46,12 @@ def search_skill(query):
 
 # Streamlit UI
 st.title("Reach Higher Alignment Search Tool")
-search_type = st.radio("Select search type:", ("Topic", "Learning Skill"))
+search_type = st.radio("Select search type:", ("Unit", "Learning Skill"))
 query = st.text_input("Enter your search term:")
 
 if query:
-    if search_type == "Topic":
-        result = search_topic(query)
+    if search_type == "Unit":
+        result = search_unit(query)
         if result is not None:
             st.write("### Matching Unit:")
             st.dataframe(result)
