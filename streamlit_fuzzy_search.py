@@ -21,7 +21,7 @@ def fuzzy_match(query, choices, threshold=60):
     return match if score >= threshold else None
 
 def search_topic(topic, vocab_df):
-    matched_unit = fuzzy_match(topic, vocab_df['Vocabulary Words'].astype(str))
+    matched_unit = fuzzy_match(topic, vocab_df['Vocabulary Words'].astype(str).tolist())
     if matched_unit:
         unit_info = vocab_df[vocab_df['Vocabulary Words'] == matched_unit].iloc[0]
         return {
