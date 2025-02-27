@@ -23,9 +23,9 @@ def fuzzy_match(query, choices, cutoff=0.6):
 
 # Search for a topic in vocabulary.csv
 def search_topic(query):
-    matched_units = fuzzy_match(query, vocabulary_df['Topic'].astype(str).tolist())
+    matched_units = fuzzy_match(query, vocabulary_df['Vocabulary Words'].astype(str).tolist())
     if matched_units:
-        results = vocabulary_df[vocabulary_df['Topic'].isin(matched_units)]
+        results = vocabulary_df[vocabulary_df['Vocabulary Words'].isin(matched_units)]
         return results[['Unit Name', 'Reach Higher Level', 'Unit Number', 'Part of Unit', 'Key Vocabulary']]
     return None
 
