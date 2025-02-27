@@ -5,13 +5,20 @@ import difflib
 # Load CSV files from GitHub repository
 def load_csv_from_github(file_name):
     url = f"https://raw.githubusercontent.com/carly-meyer-lakota/Reach-Higher-Alignment-2/main/{file_name}"
-    return pd.read_csv(url)
+    df = pd.read_csv(url)
+    st.write(df.head())  # Display first few rows for debugging
+    return df
 
 # Load datasets
 @st.cache_data
 def load_data():
     vocabulary_df = load_csv_from_github("vocabulary.csv")
     skills_df = load_csv_from_github("reach_higher_curriculum.csv")
+    
+    # Ensure column names are stripped of whitespace
+    vocabulary_df.columns = vocabulary_df.columns.str.strip()
+    skills_df.columns = skills_df.columns.str.strip()
+    
     return vocabulary_df, skills_df
 
 vocabulary_df, skills_df = load_data()
