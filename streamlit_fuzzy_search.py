@@ -22,39 +22,21 @@ def fuzzy_match(query, choices, threshold=60):
     match, score = process.extractOne(query, choices)
     return match if score >= threshold else None
 
-def search_topic(topic, vocab_df):
-    if 'Vocabulary Words' not in vocab_df.columns:
-        st.error("Error: 'Vocabulary Words' column not found in vocabulary.csv")
-        return None
+def search_any_column(query, df):
+    best_match = None
+    best_score = 0
+    match_info = {}
     
-    matched_unit = fuzzy_match(topic, vocab_df['Vocabulary Words'].astype(str).tolist())
-    if matched_unit:
-        unit_info = vocab_df[vocab_df['Vocabulary Words'] == matched_unit].iloc[0]
-        return {
-            "Unit Name": unit_info.get("Unit Name", "N/A"),
-            "Reach Higher Level": unit_info.get("Reach Higher Level", "N/A"),
-            "Unit Number": unit_info.get("Unit Number", "N/A"),
-            "Part of Unit": unit_info.get("Part of Unit", "N/A"),
-            "Key Vocabulary": vocab_df[vocab_df['Unit Number'] == unit_info['Unit Number']]['Vocabulary Words'].tolist()
-        }
-    return None
-
-def search_skill(skill, curriculum_df):
-    if 'Skill' not in curriculum_df.columns:
-        st.error("Error: 'Skill' column not found in reach_higher_curriculum.csv")
-        return None
+    for column in df.columns:
+        matches = df[column].dropna().astype(str).tolist()
+        match, score = process.extractOne(query, matches) if matches else (None, 0)
+        
+        if match and score > best_score:
+            best_score = score
+            best_match = match
+            match_info = df[df[column] == match].iloc[0].to_dict()
     
-    matched_skill = fuzzy_match(skill, curriculum_df['Skill'].astype(str))
-    if matched_skill:
-        skill_info = curriculum_df[curriculum_df['Skill'] == matched_skill].iloc[0]
-        return {
-            "Skill Name": skill_info.get("Skill", "N/A"),
-            "Unit Name": skill_info.get("Unit Name", "N/A"),
-            "Reach Higher Level": skill_info.get("Reach Higher Level", "N/A"),
-            "Unit Number": skill_info.get("Unit Number", "N/A"),
-            "Part of Unit": skill_info.get("Part of Unit", "N/A")
-        }
-    return None
+    return match_info if best_match else None
 
 # Load Data
 vocab_df = load_data(VOCAB_URL)
@@ -62,24 +44,22 @@ curriculum_df = load_data(CURRICULUM_URL)
 
 # Streamlit UI
 st.title("Reach Higher Alignment Search")
-search_type = st.radio("Select Search Type", ["Topic", "Learning Skill"])
 search_input = st.text_input("Enter your search term")
 
 if st.button("Search") and search_input:
-    if search_type == "Topic" and vocab_df is not None:
-        result = search_topic(search_input, vocab_df)
-    elif search_type == "Learning Skill" and curriculum_df is not None:
-        result = search_skill(search_input, curriculum_df)
-    else:
-        result = None
+    vocab_result = search_any_column(search_input, vocab_df) if vocab_df is not None else None
+    curriculum_result = search_any_column(search_input, curriculum_df) if curriculum_df is not None else None
     
-    if result:
+    if vocab_result or curriculum_result:
         st.write("### Match Found:")
-        for key, value in result.items():
-            if isinstance(value, list):
-                st.write(f"**{key}:**")
-                st.write("- " + "\n- ".join(value))
-            else:
+        if vocab_result:
+            st.write("#### Vocabulary Match:")
+            for key, value in vocab_result.items():
+                st.write(f"**{key}:** {value}")
+        
+        if curriculum_result:
+            st.write("#### Curriculum Match:")
+            for key, value in curriculum_result.items():
                 st.write(f"**{key}:** {value}")
     else:
         st.write("No close match found.")
